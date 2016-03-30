@@ -34,3 +34,6 @@ define Package/ardunetstd/install
 endef
 
 $(eval $(call BuildPackage,ardunetstd))
+
+################################
+###########openwrt##############
