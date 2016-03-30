@@ -1,0 +1,13 @@
+<!DOCTYPE html><html><head>
+
+<title>ArduNet stD</title>
+<style>
+body { background-color: #353535; color: #999; }
+h1 { font-size: 60px; text-align: center; color: #353535; text-shadow: 0 0 2mm #ed9399}
+</style></head>
+<body><h1>ArduNet stD</h1>
+<form action='' method='GET'>
+<input type='text' name='To_Ardu' placeholder='To Ardu' size='50'><br/><br/>
+<input id='submit' type='submit' value='Отправить'><br/></form><br/><br/><br/>
+Получил от Ардуины: 
+</body></html>
