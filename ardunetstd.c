@@ -10,8 +10,7 @@
 #include <time.h>
 #include <sys/socket.h>
 #include <netdb.h>
-//#include <netinet/in.h>
-//#include <arpa/inet.h>
+#include <sys/wait.h> 
 
 #define BUFSIZE 2048
 
@@ -29,14 +28,14 @@ char str_iz_file[BUFSIZE] = {0,};
 char adr_udp[24] = {0,};
 
 unsigned long int speedport = 0;
-unsigned int PORTR = 0; // порт для upd-сервера 3495 (приём)
-unsigned int PORTS = 0; // порт для upd-клиента 3496 (отправка)
+unsigned int PORTR = 0; 
+unsigned int PORTS = 0; 
 
-int udp_s = 0; // запуск udp-сервера ( 0 - не запускать, 1 - запускать)
-int udp_c = 0; // запуск udp-клиента ( 0 - не запускать, 1 - запускать)
+int udp_s = 0; 
+int udp_c = 0; 
 
-unsigned int PORTW = 0; // порт для web-клиента (8080) 
-int web = 0; // запуск web-сервер ( 0 - не запускать, 1 - запускать)
+unsigned int PORTW = 0;  
+int web = 0; 
 unsigned long int PAUSARD = 0;
 
 
@@ -46,6 +45,7 @@ struct hostent *host;
 int sockfd;
 pid_t udp_server;
 pid_t web_server;
+pid_t web_server2;
 
 
 void error_log() 
@@ -209,21 +209,6 @@ int main(int argc, char *argv[])
    tcflush(fd, TCIFLUSH);
 
 
-   if((sockfd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) 
-     {
-       strncpy(er_log_str, "Not sockfd", 31);
-       error_log();
-     } 
-
-   int n1 = 1;
-   setsockopt(sockfd,SOL_SOCKET,SO_BROADCAST,&n1,sizeof(n1));
-
-   host = gethostbyname(adr_udp);
-   memset(&server, 0, sizeof(server));
-   server.sin_family = AF_INET;
-   server.sin_port = htons(PORTS);
-   server.sin_addr = *((struct in_addr*) host->h_addr);
-
 ////////////////////////////////// udp_server //////////////////////////////////////////
    if(udp_s) 
     {
@@ -341,17 +326,28 @@ if(web)
          continue;
        }
  
-      unsigned int i = 0;
-      unsigned int ir = 0;
 
-      memset(bufRec, 0, sizeof(bufRec));
-      memset(buffer, 0, sizeof(buffer));
+      web_server2 = fork();
 
-      read(client_fd, buffer, BUFSIZE - 1);
-      //printf("buffer: %s\n", buffer);
+      if(-1 == web_server2) 
+       {
+         strncpy(er_log_str, "Not web_PID2", 31);
+         error_log();
+       }  
 
-      if((strstr(buffer, "GET")) != NULL)
-        {
+      if(web_server2 == 0) 
+       {
+         unsigned int i = 0;
+         unsigned int ir = 0;
+
+         memset(bufRec, 0, sizeof(bufRec));
+         memset(buffer, 0, sizeof(buffer));
+
+         read(client_fd, buffer, BUFSIZE - 1);
+         //printf("buffer: %s\n", buffer);
+
+         if((strstr(buffer, "GET")) != NULL)
+         {
           if((strstr(buffer, "curl")) != NULL) //////////////////////////// Curl
             {
               printf("OK_Curl\n");
@@ -418,7 +414,7 @@ if(web)
               write(client_fd, bufRec, sizeof(bufRec));
               close(client_fd); 
               printf("Send to curl_client: %s\n", bufRec); 
-              continue;
+              exit(0);
             }
 
           else //////////////////////////////////////////////////////////////// GET
@@ -466,39 +462,46 @@ if(web)
                  printf("GET_send_toArdu: %s\n", bufRec);
                }
            }
-        }
+         }
   
-      else 
+       else 
         {
           printf("NOT GET or Curl\n");
           close(client_fd);
-          continue;
+          exit(0);
         }
 
 
-      memset(bufRec, 0, sizeof(bufRec));
-      memset(buffer, 0, sizeof(buffer));
+       memset(bufRec, 0, sizeof(bufRec));
+       memset(buffer, 0, sizeof(buffer));
 
-      usleep(PAUSARD);
+       usleep(PAUSARD);
 
-      FILE *f; 
-      f = fopen(file_ardu_patch, "r"); // файл ардуины
-      if(f == NULL) 
+       FILE *f; 
+       f = fopen(file_ardu_patch, "r"); // файл ардуины
+
+       if(f == NULL) 
         {
           close(client_fd);
 	  strncpy(er_log_str, "Error-NOT open file", 31);
           error_log();
         } 
 
-      fgets(buffer, BUFSIZE - 1, f);
-      fclose(f); 
+       fgets(buffer, BUFSIZE - 1, f);
+       fclose(f); 
 
-      snprintf(bufRec, BUFSIZE - 1, "%s", buffer);
-      write(client_fd, response, sizeof(response) - 1);
-      write(client_fd, index_file, BUFSIZE); 
-      write(client_fd, bufRec, BUFSIZE);
-      close(client_fd);
-      printf("Send to web_client: %s\n", bufRec);
+       snprintf(bufRec, BUFSIZE - 1, "%s", buffer);
+       write(client_fd, response, sizeof(response) - 1);
+       write(client_fd, index_file, BUFSIZE); 
+       write(client_fd, bufRec, BUFSIZE);
+       close(client_fd);
+       printf("Send to web_client: %s\n", bufRec);
+       exit(0);
+
+     } // END FORK web2
+
+     close(client_fd);
+     wait(NULL);
 
    } // END while
 
@@ -506,6 +509,24 @@ if(web)
 
 } // END web
     
+
+/////////////////////////////////////////// SEND UDP //////////////////////////////////////////////
+
+   if((sockfd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) 
+     {
+       close(sockfd);
+       strncpy(er_log_str, "Not sockfd", 31);
+       error_log();
+     } 
+
+   int n1 = 1;
+   setsockopt(sockfd,SOL_SOCKET,SO_BROADCAST,&n1,sizeof(n1));
+
+   host = gethostbyname(adr_udp);
+   memset(&server, 0, sizeof(server));
+   server.sin_family = AF_INET;
+   server.sin_port = htons(PORTS);
+   server.sin_addr = *((struct in_addr*) host->h_addr);
 
 /////////////////////////////////////////// READ ARDUINO //////////////////////////////////////////////
 
@@ -568,13 +589,13 @@ if(web)
 
 // gcc -Wall -Wextra ardunetstd.c -o ardunetstd
 
-// ./ardunetstd /dev/ttyUSB0 57600 /tmp/tmp.txt 3495 3492 "192.168.1.224" 1 1 8080 /home/dima/index.web 1 200000
+// ./ardunetstd /dev/ttyUSB0 57600 /tmp/tmp.txt 3495 3496 "192.168.5.224" 1 1 8080 /home/dima/index.web 1 300000
 
 // 1 - путь к ардуине, 2 - baud rate, 3 - путь к файлу с данными, 4 - порт для upd-сервера 3495 (приём), 5 - порт для upd-клиента 3496 (отправка), 6 - адрес udp-сервера для отправки (писать в кавычках - "192.168.165.254"), 7 - запуск udp-сервера ( 0 - не запускать, 1 - запускать), 8 - запуск udp-клиента ( 0 - не запускать, 1 - запускать), 9 - порт для web-сервера 8080, 10 - путь к файлу index.html (/home/dima/index.html), 11 - запуск web-сервера ( 0 - не запускать, 1 - запускать), 12 - пауза перед отправкой ответа на web-страничку (200000)  
 
 //  make package/ardunetstd/compile V=s
 
-
+// /opt/ardunetstd /dev/ttyUSB1 57600 /tmp/tmp.txt 3495 3496 "192.168.5.224" 1 1 8080 /opt/index.web 1 300000
 
 
 
