@@ -22,8 +22,6 @@ char index_filepatch[128]={0,};
 
 char bRead[BUFSIZE] = {0,}; 
 
-char bRead2[BUFSIZE] = {0,}; 
-
 char device[32]={0,};
 char file_ardu_patch[128]={0,};
 char str_iz_file[BUFSIZE] = {0,};
