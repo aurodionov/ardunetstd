@@ -1,3 +1,3 @@
 # ardunetstD
 
-http://istarik.ru
+http://istarik.ru/blog/ymniidom/54.html
