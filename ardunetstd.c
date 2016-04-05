@@ -21,7 +21,9 @@ char index_file[BUFSIZE]={0,};
 char index_filepatch[128]={0,};
 
 char bRead[BUFSIZE] = {0,}; 
-char er_log_str[32]={0,};
+
+char bRead2[BUFSIZE] = {0,}; 
+
 char device[32]={0,};
 char file_ardu_patch[128]={0,};
 char str_iz_file[BUFSIZE] = {0,};
@@ -38,6 +40,7 @@ unsigned int PORTW = 0;
 int web = 0; 
 unsigned long int PAUSARD = 0;
 
+int fd;
 
 struct sockaddr_in server;
 struct hostent *host; 
@@ -48,31 +51,20 @@ pid_t web_server;
 pid_t web_server2;
 
 
-void error_log() 
+void error_log(char *err) 
  {  
    time_t t;
    time(&t);
    FILE *f;
    f = fopen("Error.log", "a"); 
-   fprintf(f, "%s. ", er_log_str);
+   fprintf(f, "%s. ", err);
    fprintf(f, "%s", ctime( &t));  
    printf("Write to Error.log\n");
    fclose(f);
    kill(udp_server, SIGKILL);
    kill(web_server, SIGKILL);
+   kill(web_server2, SIGKILL);
    exit(0);
- }
-
-
-void send_by_udp() 
- {
-   if(sendto(sockfd, str_iz_file, strlen(str_iz_file), 0, (struct sockaddr *) &server, sizeof(struct sockaddr_in)) < 0)
-     {
-       strncpy(er_log_str, "ERROR_udp_send", 31);
-       error_log();
-     }
-
-   printf("UDP_send: %s\n\n", str_iz_file);
  }
 
 
@@ -84,8 +76,7 @@ void read_index_file()
 
    if(file == NULL)
     {
-      strncpy(er_log_str, "Error-Open index_file", 31);
-      error_log();
+      error_log("Error-Open index_file");
     }
 
    while(fgets(result_sting,sizeof(result_sting),file))
@@ -97,15 +88,14 @@ void read_index_file()
  }
 
 
-int open_port()  
+void open_port()  
  {  
-   int fd;  
+     
    fd = open(device, O_RDWR | O_NOCTTY); 
  
    if(fd == -1) 
      {
-       strncpy(er_log_str, "Error - NOT open port", 31);
-       error_log();
+       error_log("Error - NOT open port");
      }
 
    else  
@@ -147,12 +137,12 @@ int open_port()
 
 	default: 
         printf("Error - Speed_port\n");
-        strncpy(er_log_str, "Error - Speed_port\n", 31);
-        error_log();
+        error_log("Error - Speed_port");
         break;
        }
 
        options.c_cflag |= (CLOCAL | CREAD); 
+       options.c_iflag = IGNCR;
        options.c_cflag &= ~PARENB;  
        options.c_cflag &= ~CSTOPB;  
        options.c_cflag &= ~CSIZE;  
@@ -165,8 +155,6 @@ int open_port()
        tcflush(fd, TCIFLUSH);
        tcsetattr(fd, TCSANOW, &options);  
      }  
-
-   return fd;  
  }
 
 
@@ -175,8 +163,7 @@ int main(int argc, char *argv[])
    if(argc != 13) 
     {
       printf("Not argumets!\n");
-      strncpy(er_log_str, "Not argumets", 31);
-      error_log();
+      error_log("Not argumets");
     }
   
    strncpy(device, argv[1], 31); // arduina
@@ -197,14 +184,12 @@ int main(int argc, char *argv[])
    f = fopen(file_ardu_patch, "w"); 
    if(f == NULL) 
     {
-      strncpy(er_log_str, "Error-Create file", 31);
-      error_log();
+      error_log("Error-Create file");
     }
 
    fclose(f);
 
-
-   int fd = open_port(); 
+   open_port(); 
    sleep(2);
    tcflush(fd, TCIFLUSH);
 
@@ -216,8 +201,7 @@ int main(int argc, char *argv[])
 
       if(-1 == udp_server) 
        {
-        strncpy(er_log_str, "Not udp_PID", 31);
-        error_log();
+         error_log("Not udp_PID");
        }
 
      if(udp_server == 0) 
@@ -232,28 +216,23 @@ int main(int argc, char *argv[])
 
         if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
          {
-           strncpy(er_log_str, "Not sockfd udp_server", 31);
-           error_log();
+           error_log("Not sockfd udp_server");
          }
  
-        	
         if (bind(sockfd, (struct sockaddr *) &server, sizeof(server)))
          {
-           strncpy(er_log_str, "Not bind udp_server", 31);
-           error_log();
+           error_log("Not bind udp_server");
          }
  
         while(1)
          {
            memset(msg, 0, sizeof(msg));
            memset(to_Ardu, 0, sizeof(to_Ardu));
-           int n = recvfrom(sockfd, msg, BUFSIZE - 1, 0, NULL, NULL); // udp reciv and send to ardu
+           int n = recvfrom(sockfd, msg, BUFSIZE - 1, 0, NULL, NULL); 
            msg[n] = 0;
            printf("UDP_reciv\n");
-
            snprintf(to_Ardu, BUFSIZE - 1, "echo '%s' > %s", msg, device);
            system(to_Ardu);
-
            printf("UDP_send_to_ardu: %s\n", msg);
          }
  
@@ -271,15 +250,12 @@ if(web)
 
   if(-1 == web_server) 
     {
-      strncpy(er_log_str, "Not web_PID", 31);
-      error_log();
+      error_log("Not web_PID");
     }  
-
 
   if(web_server == 0) 
     {
       read_index_file();
-
       int n2 = 1, client_fd;
       struct sockaddr_in svr_addr, cli_addr;
       socklen_t sin_len = sizeof(cli_addr);
@@ -289,8 +265,7 @@ if(web)
       if(sock < 0) 
        {
          close(sock);
-         strncpy(er_log_str, "Error - socket web", 31);
-         error_log();
+         error_log("Error - socket web");
        }
   
       setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &n2, sizeof(n2));
@@ -302,17 +277,14 @@ if(web)
       if(bind(sock, (struct sockaddr *) &svr_addr, sizeof(svr_addr)) == -1) 
        {
          close(sock);
-         strncpy(er_log_str, "Error - web bind", 31);
-         error_log();
+         error_log("Error - web bind");
        }
  
       if(listen(sock, 5) == -1) 
        {
          close(sock);
-         strncpy(er_log_str, "Error - listen", 31);
-         error_log();
+         error_log("Error - listen");
 	}
-
 
       char buffer[BUFSIZE] = {0,};
       char bufRec[BUFSIZE] = {0,};
@@ -326,13 +298,11 @@ if(web)
          continue;
        }
  
-
       web_server2 = fork();
 
       if(-1 == web_server2) 
        {
-         strncpy(er_log_str, "Not web_PID2", 31);
-         error_log();
+         error_log("Not web_2_PID");
        }  
 
       if(web_server2 == 0) 
@@ -344,11 +314,10 @@ if(web)
          memset(buffer, 0, sizeof(buffer));
 
          read(client_fd, buffer, BUFSIZE - 1);
-         //printf("buffer: %s\n", buffer);
 
          if((strstr(buffer, "GET")) != NULL)
-         {
-          if((strstr(buffer, "curl")) != NULL) //////////////////////////// Curl
+          {
+           if((strstr(buffer, "curl")) != NULL) //////////////////////////// Curl
             {
               printf("OK_Curl\n");
 
@@ -373,7 +342,6 @@ if(web)
                   }
                }
             
-
               memset(buffer, 0, sizeof(buffer));
               char *p;
 
@@ -403,8 +371,7 @@ if(web)
               if(f == NULL) 
                {
                  close(client_fd);
-	         strncpy(er_log_str, "Error-NOT open file", 31);
-                 error_log();
+                 error_log("Error-NOT open file");
                } 
 
               fgets(buffer, BUFSIZE - 1, f);
@@ -471,7 +438,6 @@ if(web)
           exit(0);
         }
 
-
        memset(bufRec, 0, sizeof(bufRec));
        memset(buffer, 0, sizeof(buffer));
 
@@ -483,8 +449,7 @@ if(web)
        if(f == NULL) 
         {
           close(client_fd);
-	  strncpy(er_log_str, "Error-NOT open file", 31);
-          error_log();
+          error_log("Error-NOT open file");
         } 
 
        fgets(buffer, BUFSIZE - 1, f);
@@ -505,18 +470,16 @@ if(web)
 
    } // END while
 
- } // END FORK web
+ } // END fork web
 
 } // END web
-    
 
 /////////////////////////////////////////// SEND UDP //////////////////////////////////////////////
 
    if((sockfd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) 
      {
        close(sockfd);
-       strncpy(er_log_str, "Not sockfd", 31);
-       error_log();
+       error_log("Not sockfd");
      } 
 
    int n1 = 1;
@@ -530,11 +493,12 @@ if(web)
 
 /////////////////////////////////////////// READ ARDUINO //////////////////////////////////////////////
 
-   unsigned int i;
+  unsigned int i;
 
-   while(!VINTR) 
-    {  
+  while(!VINTR) 
+   {  
       int bytes = 0;
+
       memset(bRead, 0, sizeof(bRead));
 
       if((bytes = read(fd, bRead, BUFSIZE))==-1) // read()
@@ -549,6 +513,7 @@ if(web)
             bRead[i] = 0; 
             break;
           }
+
        } 
 
      //////////////////// Сравнение строк //////////////////////
@@ -564,8 +529,7 @@ if(web)
          f = fopen(file_ardu_patch, "w"); 
          if(f == NULL) 
           {
-	    strncpy(er_log_str, "Error-Write to file", 31);
-            error_log();
+            error_log("Error-Write to file");
           }
 
          fprintf(f, "%s", bRead);
@@ -575,10 +539,12 @@ if(web)
     
      printf("Reciv_from_arduino: %s | Bytes - %d\n", bRead, bytes);
 
-     if(udp_c)
+     if(sendto(sockfd, str_iz_file, strlen(str_iz_file), 0, (struct sockaddr *) &server, sizeof(struct sockaddr_in)) < 0)
       {
-        send_by_udp();
+        error_log("ERROR_udp_send");
       }
+
+     printf("UDP_send: %s\n\n", str_iz_file);
      
     } // END (while) 
  
