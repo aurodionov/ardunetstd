@@ -537,18 +537,22 @@ if(web)
     
      printf("Reciv_from_arduino: %s | Bytes - %d\n", bRead, bytes);
 
-     if(sendto(sockfd, str_iz_file, strlen(str_iz_file), 0, (struct sockaddr *) &server, sizeof(struct sockaddr_in)) < 0)
+     if(udp_c)
       {
-        error_log("ERROR_udp_send");
-      }
 
-     printf("UDP_send: %s\n\n", str_iz_file);
+        if(sendto(sockfd, str_iz_file, strlen(str_iz_file), 0, (struct sockaddr *) &server, sizeof(struct sockaddr_in)) < 0)
+         {
+           error_log("ERROR_udp_send");
+         }
+
+        printf("UDP_send: %s\n\n", str_iz_file);
+      }
      
     } // END (while) 
  
   return 0;
 
- } // END main()
+ }  // END main()
 
 
 // gcc -Wall -Wextra ardunetstd.c -o ardunetstd
