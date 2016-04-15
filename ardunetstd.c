@@ -59,9 +59,9 @@ void error_log(char *err)
    fprintf(f, "%s", ctime( &t));  
    printf("Write to Error.log\n");
    fclose(f);
-   kill(udp_server, SIGKILL);
-   kill(web_server, SIGKILL);
-   kill(web_server2, SIGKILL);
+   kill(udp_server, SIGTERM);
+   kill(web_server, SIGTERM);
+   kill(web_server2, SIGTERM);
    exit(0);
  }
 
@@ -170,6 +170,7 @@ int main(int argc, char *argv[])
    PORTR = strtoul(argv[4], NULL, 0); // порт для upd-сервера 3495 (приём)
    PORTS = strtoul(argv[5], NULL, 0); // порт для upd-клиента 3496 (отправка)
    strncpy(adr_udp, argv[6], 23); // адрес udp-сервера для отправки
+   adr_udp[sizeof(adr_udp) - 1] = 0;
    udp_s = atoi(argv[7]); // запуск udp-сервера ( 0 - не запускать, 1 - запускать)
    udp_c = atoi(argv[8]); // запуск udp-клиента ( 0 - не запускать, 1 - запускать)
    PORTW = strtoul(argv[9], NULL, 0); // порт для web-сервера 8080
@@ -473,7 +474,8 @@ if(web)
 } // END web
 
 /////////////////////////////////////////// SEND UDP //////////////////////////////////////////////
-
+ if(udp_c)
+  {
    if((sockfd=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) 
      {
        close(sockfd);
@@ -488,7 +490,7 @@ if(web)
    server.sin_family = AF_INET;
    server.sin_port = htons(PORTS);
    server.sin_addr = *((struct in_addr*) host->h_addr);
-
+  }
 /////////////////////////////////////////// READ ARDUINO //////////////////////////////////////////////
 
   unsigned int i;
